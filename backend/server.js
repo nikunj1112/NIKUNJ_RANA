@@ -17,7 +17,7 @@ const { uploadProfile } = require('./middleware/multerConfig');
 app.use('/uploads', express.static('uploads'));
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: ['http://localhost:5173', 'http://localhost:3000','https://nikunj-rana.vercel.app'],
   credentials: true,
 }));
 app.use(express.json());
