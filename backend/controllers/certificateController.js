@@ -1,6 +1,6 @@
 const Certificate = require('../models/Certificate');
 const asyncHandler = require('express-async-handler');
-const fs = require('fs');
+const { uploadMulterFileToCloudinary } = require('../utils/cloudinaryUpload');
 
 // @desc    Get all certificates
 // @route   GET /api/certificates
@@ -27,13 +27,20 @@ const getCertificate = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const createCertificate = asyncHandler(async (req, res) => {
   // Handle file upload + form data
-  const image = req.file ? `/uploads/${req.file.filename}` : req.body.image || null;
-  
+  let image = req.body.image || null;
+
+  if (req.file) {
+    image = await uploadMulterFileToCloudinary(req.file, {
+      resourceType: 'image',
+      folder: 'portfolio/certificates',
+    });
+  }
+
   const certificateData = {
     ...req.body,
-    image
+    image,
   };
-  
+
   const certificate = await Certificate.create(certificateData);
   res.status(201).json(certificate);
 });
@@ -48,19 +55,18 @@ const updateCertificate = asyncHandler(async (req, res) => {
     throw new Error('Certificate not found');
   }
 
-  // Handle file upload - delete old image if new one uploaded
-  let imagePath = certificate.image;
+  // Handle file upload
+  let image = certificate.image;
   if (req.file) {
-    // Delete old image if exists
-    if (certificate.image && fs.existsSync(`.${certificate.image}`)) {
-      fs.unlinkSync(`.${certificate.image}`);
-    }
-    imagePath = `/uploads/${req.file.filename}`;
+    image = await uploadMulterFileToCloudinary(req.file, {
+      resourceType: 'image',
+      folder: 'portfolio/certificates',
+    });
   }
 
   const updateData = {
     ...req.body,
-    image: imagePath
+    image,
   };
 
   const updatedCertificate = await Certificate.findByIdAndUpdate(
@@ -81,11 +87,8 @@ const deleteCertificate = asyncHandler(async (req, res) => {
     throw new Error('Certificate not found');
   }
 
-  // Delete associated image
-  if (certificate.image && fs.existsSync(`.${certificate.image}`)) {
-    fs.unlinkSync(`.${certificate.image}`);
-  }
-
+  // Cloudinary deletion is optional; keeping current behavior as DB-only deletion
+  // avoids needing stored Cloudinary public_id.
   await Certificate.findByIdAndDelete(req.params.id);
   res.json({ message: 'Certificate deleted' });
 });

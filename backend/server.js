@@ -12,9 +12,8 @@ connectDB();
 const app = express();
 
 // Middleware
-// multerConfig now exports object { uploadProfile, uploadCertificateImage }
-const { uploadProfile } = require('./middleware/multerConfig');
-app.use('/uploads', express.static('uploads'));
+// Multer is configured to use memoryStorage + Cloudinary uploads (no local files).
+
 
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:3000','https://nikunj-rana.vercel.app'],

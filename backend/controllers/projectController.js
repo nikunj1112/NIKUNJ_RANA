@@ -1,5 +1,5 @@
 const Project = require('../models/Project');
-const fs = require('fs');
+const { uploadMulterFileToCloudinary } = require('../utils/cloudinaryUpload');
 
 // @desc    Get all projects
 // @route   GET /api/projects
@@ -18,14 +18,24 @@ const getProjects = async (req, res) => {
 // @access  Private
 const createProject = async (req, res) => {
   try {
-    const image = req.file ? `/uploads/${req.file.filename}` : req.body.image || null;
-    
+    let image = req.body.image || null;
+
+    if (req.file) {
+      // Upload directly to Cloudinary (images)
+      image = await uploadMulterFileToCloudinary(req.file, {
+        resourceType: 'image',
+        folder: 'portfolio/projects',
+      });
+    }
+
     const projectData = {
       ...req.body,
-      technologies: req.body.technologies ? req.body.technologies.split(',').map(t => t.trim()).filter(t => t) : [],
-      image
+      technologies: req.body.technologies
+        ? req.body.technologies.split(',').map((t) => t.trim()).filter(Boolean)
+        : [],
+      image,
     };
-    
+
     const project = await Project.create(projectData);
     res.status(201).json(project);
   } catch (error) {
@@ -43,20 +53,20 @@ const updateProject = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    // Handle file upload - delete old image if new uploaded
-    let imagePath = project.image;
+    let image = project.image;
     if (req.file) {
-      // Delete old image
-      if (project.image && fs.existsSync(`.${project.image}`)) {
-        fs.unlinkSync(`.${project.image}`);
-      }
-      imagePath = `/uploads/${req.file.filename}`;
+      image = await uploadMulterFileToCloudinary(req.file, {
+        resourceType: 'image',
+        folder: 'portfolio/projects',
+      });
     }
 
     const updateData = {
       ...req.body,
-      technologies: req.body.technologies ? req.body.technologies.split(',').map(t => t.trim()).filter(t => t) : project.technologies,
-      image: imagePath
+      technologies: req.body.technologies
+        ? req.body.technologies.split(',').map((t) => t.trim()).filter(Boolean)
+        : project.technologies,
+      image,
     };
 
     const updatedProject = await Project.findByIdAndUpdate(
@@ -80,11 +90,8 @@ const deleteProject = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    // Delete image file
-    if (project.image && fs.existsSync(`.${project.image}`)) {
-      fs.unlinkSync(`.${project.image}`);
-    }
-
+    // Cloudinary deletion is optional; leaving it as-is avoids needing public_id
+    // unless you add storing cloudinary public_id.
     await Project.findByIdAndDelete(req.params.id);
     res.json({ message: 'Project deleted successfully' });
   } catch (error) {

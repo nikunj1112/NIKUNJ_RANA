@@ -1,4 +1,5 @@
 const Profile = require('../models/Profile');
+const { uploadMulterFileToCloudinary } = require('../utils/cloudinaryUpload');
 
 // @desc    Get profile
 // @route   GET /api/profile
@@ -49,27 +50,23 @@ const uploadProfileImage = async (req, res) => {
       return res.status(400).json({ message: 'No image file provided' });
     }
 
+    const cloudinaryUrl = await uploadMulterFileToCloudinary(req.file, {
+      resourceType: 'image',
+      folder: 'portfolio/profile',
+    });
+
     let profile = await Profile.findOne();
     if (!profile) {
-      profile = await Profile.create({ profileImage: `/uploads/${req.file.filename}` });
+      profile = await Profile.create({ profileImage: cloudinaryUrl });
     } else {
-      // Delete old image if exists
-      if (profile.profileImage && profile.profileImage !== '') {
-        const fs = require('fs');
-        const path = require('path');
-        const oldImagePath = path.join(__dirname, '..', '..', profile.profileImage.replace('/uploads/', ''));
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
-        }
-      }
-      profile.profileImage = `/uploads/${req.file.filename}`;
+      profile.profileImage = cloudinaryUrl;
       profile = await profile.save();
     }
 
     res.json({
       message: 'Profile image uploaded successfully',
       profileImage: profile.profileImage,
-      profile: profile
+      profile: profile,
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -86,27 +83,23 @@ const uploadResume = async (req, res) => {
       return res.status(400).json({ message: 'No resume file provided' });
     }
 
+    const cloudinaryUrl = await uploadMulterFileToCloudinary(req.file, {
+      resourceType: 'raw',
+      folder: 'portfolio/resume',
+    });
+
     let profile = await Profile.findOne();
     if (!profile) {
-      profile = await Profile.create({ resume: `/uploads/${req.file.filename}` });
+      profile = await Profile.create({ resume: cloudinaryUrl });
     } else {
-      // Delete old resume if exists
-      if (profile.resume && profile.resume !== '') {
-        const fs = require('fs');
-        const path = require('path');
-        const oldResumePath = path.join(__dirname, '..', '..', profile.resume.replace('/uploads/', ''));
-        if (fs.existsSync(oldResumePath)) {
-          fs.unlinkSync(oldResumePath);
-        }
-      }
-      profile.resume = `/uploads/${req.file.filename}`;
+      profile.resume = cloudinaryUrl;
       profile = await profile.save();
     }
 
     res.json({
       message: 'Resume uploaded successfully',
       resume: profile.resume,
-      profile: profile
+      profile: profile,
     });
   } catch (error) {
     console.error('Resume upload error:', error);

@@ -1,97 +1,42 @@
+// NOTE: This file used to store uploads locally via multer.diskStorage.
+// For Render deployment we removed local disk dependency entirely.
+//
+// We now use multer memoryStorage and upload req.file.buffer to Cloudinary
+// inside controllers.
+
+// Backward-compatible multer exports used by existing routes.
+// - profileRoutes uses `uploadProfile.single('profileImage')` and `uploadProfile.single('resume')`
+// - projectRoutes uses `uploadProjectImage.single('image')`
+// - certificateRoutes uses `uploadCertificateImage.single('image')`
+
 const multer = require('multer');
-const path = require('path');
+const { uploadProjectImage, uploadCertificateImage } = require('./cloudinaryMulter');
 
-// Ensure uploads directory exists
-const fs = require('fs');
-const uploadDir = './uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
+// `uploadProfileImage` and `uploadResume` are multer instances;
+// choose based on content-type inside a single wrapper.
+// We keep implementation simple by using one multer with a filter that accepts both.
+// (Reusing the original filters from cloudinaryMulter would require refactor; this wrapper is production-safe.)
+
+const memoryStorage = require('multer').memoryStorage();
+
+const uploadProfile = multer({
+  storage: memoryStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype && file.mimetype.startsWith('image/')) return cb(null, true);
+    if (file.mimetype === 'application/pdf') return cb(null, true);
+    return cb(new Error('Only image files or PDF are allowed!'), false);
   },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-  }
 });
 
-// File filter - allow images and PDF
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files (JPG, PNG) or PDF are allowed!'), false);
-  }
+module.exports = {
+  // multer instances used by routes
+  uploadProfile,
+  uploadCertificateImage,
+  uploadProjectImage,
 };
 
 
-const uploadProfile = multer({ 
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
-  fileFilter: fileFilter
-});
-
-// New multer for certificates - images only, 3MB limit
-const certificateStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'certificate-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const certificateFileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files (JPG, PNG, WebP, GIF) are allowed for certificates!'), false);
-  }
-};
-
-const uploadCertificateImage = multer({ 
-  storage: certificateStorage,
-  limits: {
-    fileSize: 3 * 1024 * 1024 // 3MB limit for cert images
-  },
-  fileFilter: certificateFileFilter
-});
-
-// New multer for projects
-const projectStorage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'project-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const projectFileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed for projects!'), false);
-  }
-};
-
-const uploadProjectImage = multer({ 
-  storage: projectStorage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB for project images
-  },
-  fileFilter: projectFileFilter
-});
-
-
-module.exports = { uploadProfile, uploadCertificateImage, uploadProjectImage };
 
 
